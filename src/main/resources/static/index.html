@@ -376,16 +376,11 @@
                     throw new Error(`HTTP ${res.status}: ${text}`);
                 }
 
-                // Remove from status list
-                const li = document.querySelector(`#uploadedList${section} [data-upload-id="${uploadId}"]`);
-                if (li) li.remove();
+                removeFromUploadedList(section, uploadId);
 
-                // Decrement counter; hide the uploaded section panel when empty
+                // Decrement counter
                 if (section === 1) s1Count--;
                 else               s2Count--;
-                if (document.getElementById('uploadedList' + section).children.length === 0) {
-                    document.getElementById('uploadedSection' + section).style.display = 'none';
-                }
 
                 row.remove();
                 await refreshResult();
@@ -411,14 +406,30 @@
             return;
         }
 
-        const file = fileInput.files[0];
-        const fd   = new FormData();
+        const file        = fileInput.files[0];
+        const oldUploadId = row.dataset.uploadId;   // defined only when replacing
+        const isReplace   = !!oldUploadId;
+        const fd          = new FormData();
         fd.append('file', file);
 
-        btn.disabled             = true;
-        statusIcon.textContent   = '⏳';
+        btn.disabled           = true;
+        statusIcon.textContent = '⏳';
 
         try {
+            // Step 1: revoke the previous upload when replacing
+            if (isReplace) {
+                const delRes = await fetch(`${API}/upload/${section}/${oldUploadId}`, { method: 'DELETE' });
+                if (!delRes.ok) {
+                    const text = await delRes.text();
+                    throw new Error(`Visszavonási hiba – HTTP ${delRes.status}: ${text}`);
+                }
+                // Revoke succeeded — clean up DOM state before the new upload
+                removeFromUploadedList(section, oldUploadId);
+                delete row.dataset.uploadId;
+                // Counter intentionally NOT changed here: one slot is being replaced
+            }
+
+            // Step 2: upload the new file
             const res = await fetch(`${API}/upload/${section}`, { method: 'POST', body: fd });
             if (!res.ok) {
                 const text = await res.text();
@@ -432,11 +443,14 @@
                 'success'
             );
 
-            // store uploadId on the row so the − button can revoke it later
+            // Store new uploadId on the row
             row.dataset.uploadId = data.uploadId;
 
-            if (section === 1) s1Count++;
-            else               s2Count++;
+            // Increment counter only for a fresh (non-replacing) upload
+            if (!isReplace) {
+                if (section === 1) s1Count++;
+                else               s2Count++;
+            }
 
             addToUploadedList(section, file.name, data.wordsAdded, data.uploadId);
             await refreshResult();
@@ -444,6 +458,16 @@
         } catch (err) {
             statusIcon.textContent = '❌';
             btn.disabled           = false;   // allow retry
+
+            // If revoke succeeded but the new upload failed:
+            //   - row.dataset.uploadId was already cleared  → the slot is now empty
+            //   - the old file is gone from the backend     → decrement the counter
+            if (isReplace && !row.dataset.uploadId) {
+                if (section === 1) s1Count--;
+                else               s2Count--;
+                await refreshResult();
+            }
+
             showToast('Feltöltési hiba: ' + err.message, 'error');
         }
     }
@@ -460,6 +484,15 @@
             `<span class="uploaded-badge">+${wordsAdded} új szó</span>`;
         list.appendChild(li);
         sectionDiv.style.display = '';
+    }
+
+    /* ── Remove an entry from the section's status list; hide the panel when empty ── */
+    function removeFromUploadedList(section, uploadId) {
+        const li = document.querySelector(`#uploadedList${section} [data-upload-id="${uploadId}"]`);
+        if (li) li.remove();
+        if (document.getElementById('uploadedList' + section).children.length === 0) {
+            document.getElementById('uploadedSection' + section).style.display = 'none';
+        }
     }
 
     /* ── Fetch the current difference and update the UI ── */
