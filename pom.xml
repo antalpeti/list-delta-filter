@@ -12,10 +12,10 @@
 	</parent>
 
 	<groupId>com.antalpeti</groupId>
-	<artifactId>list-delta-filter</artifactId>
+	<artifactId>list-set-difference</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name>list-delta-filter</name>
-	<description>List Delta Filter</description>
+	<name>list-set-difference</name>
+	<description>List Set Difference</description>
 
 	<properties>
 		<java.version>17</java.version>

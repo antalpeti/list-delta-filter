@@ -1,13 +1,14 @@
-package com.antalpeti.listdeltafilter;
+package com.antalpeti.listsetdifference;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
-class ListDeltaFilterApplicationTests {
+class ListSetDifferenceApplicationTests {
 
 	@Test
 	void contextLoads() {
 	}
 
 }
+
