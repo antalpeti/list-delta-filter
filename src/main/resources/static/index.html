@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="hu">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -269,21 +269,21 @@
     <!-- Page header -->
     <div class="page-header">
         <h1>List Set Difference</h1>
-        <p>union(1. szakasz) &minus; union(2. szakasz)</p>
+        <p>union(section 1) &minus; union(section 2)</p>
     </div>
 
     <!-- ── Section 1 ── -->
     <div class="card">
         <div class="card-header">
             <div class="card-badge badge-1">1</div>
-            <h2>1. szakasz – TXT fájlok feltöltése</h2>
+            <h2>Section 1 - Upload TXT files</h2>
         </div>
         <div id="uploadRows1"></div>
         <div>
-            <button class="btn btn-add" onclick="addRow(1)">+ Új sor</button>
+            <button class="btn btn-add" onclick="addRow(1)">+ New row</button>
         </div>
         <div id="uploadedSection1" class="uploaded-section" style="display:none;">
-            <div class="uploaded-section-title">✅ Feltöltött fájlok</div>
+            <div class="uploaded-section-title">✅ Uploaded files</div>
             <ul id="uploadedList1" class="uploaded-list"></ul>
         </div>
     </div>
@@ -292,14 +292,14 @@
     <div class="card">
         <div class="card-header">
             <div class="card-badge badge-2">2</div>
-            <h2>2. szakasz – TXT fájlok feltöltése</h2>
+            <h2>Section 2 - Upload TXT files</h2>
         </div>
         <div id="uploadRows2"></div>
         <div>
-            <button class="btn btn-add" onclick="addRow(2)">+ Új sor</button>
+            <button class="btn btn-add" onclick="addRow(2)">+ New row</button>
         </div>
         <div id="uploadedSection2" class="uploaded-section" style="display:none;">
-            <div class="uploaded-section-title">✅ Feltöltött fájlok</div>
+            <div class="uploaded-section-title">✅ Uploaded files</div>
             <ul id="uploadedList2" class="uploaded-list"></ul>
         </div>
     </div>
@@ -308,16 +308,16 @@
     <div class="card">
         <div class="card-header">
             <div class="card-badge badge-3">3</div>
-            <h2>3. szakasz – Eredmény</h2>
+            <h2>Section 3 - Result</h2>
         </div>
         <div class="result-actions">
-            <button id="saveFileBtn"  class="btn btn-save" disabled onclick="saveToFile()">⬇ Mentés fájlba</button>
-            <button id="saveClipBtn"  class="btn btn-clip" disabled onclick="saveToClipboard()">📋 Vágólapra</button>
+            <button id="saveFileBtn"  class="btn btn-save" disabled onclick="saveToFile()">⬇ Save to file</button>
+            <button id="saveClipBtn"  class="btn btn-clip" disabled onclick="saveToClipboard()">📋 Copy to clipboard</button>
             <div class="spacer"></div>
-            <button class="btn btn-reset" onclick="resetAll()">↺ Visszaállítás</button>
+            <button class="btn btn-reset" onclick="resetAll()">↺ Reset</button>
         </div>
         <textarea id="resultArea" class="result-textarea" readonly
-                  placeholder="Az eredmény itt jelenik meg, miután mindkét szakaszba feltöltöttél legalább egy fájlt…"></textarea>
+                  placeholder="The result appears here after uploading at least one file to both sections..."></textarea>
         <p id="resultInfo" class="result-info"></p>
     </div>
 
@@ -348,8 +348,8 @@
         row.className = 'upload-row';
         row.innerHTML = `
             <input type="file" accept=".txt">
-            <button class="btn btn-upload" onclick="uploadFile(${section}, this)">Feltöltés</button>
-            <button class="btn btn-delete" onclick="removeRow(${section}, this)" title="Sor törlése">−</button>
+            <button class="btn btn-upload" onclick="uploadFile(${section}, this)">Upload</button>
+            <button class="btn btn-delete" onclick="removeRow(${section}, this)" title="Delete row">−</button>
             <span class="status-icon"></span>`;
         container.appendChild(row);
     }
@@ -359,7 +359,7 @@
         const container = document.getElementById('uploadRows' + section);
         const rows = container.querySelectorAll('.upload-row');
         if (rows.length <= 1) {
-            showToast('Legalább 1 feltöltő sornak maradnia kell a szakaszban!', 'error');
+            showToast('At least 1 upload row must remain in the section!', 'error');
             return;
         }
 
@@ -384,10 +384,10 @@
 
                 row.remove();
                 await refreshResult();
-                showToast('Feltöltés visszavonva!', 'success');
+                showToast('Upload revoked!', 'success');
             } catch (err) {
                 btn.disabled = false;
-                showToast('Visszavonási hiba: ' + err.message, 'error');
+                showToast('Revoke error: ' + err.message, 'error');
             }
         } else {
             // Row was never uploaded — pure DOM removal
@@ -402,7 +402,7 @@
         const statusIcon = row.querySelector('.status-icon');
 
         if (!fileInput.files?.length) {
-            showToast('Kérlek válassz ki egy TXT fájlt!', 'error');
+            showToast('Please select a TXT file!', 'error');
             return;
         }
 
@@ -421,7 +421,7 @@
                 const delRes = await fetch(`${API}/upload/${section}/${oldUploadId}`, { method: 'DELETE' });
                 if (!delRes.ok) {
                     const text = await delRes.text();
-                    throw new Error(`Visszavonási hiba – HTTP ${delRes.status}: ${text}`);
+                    throw new Error(`Revoke error - HTTP ${delRes.status}: ${text}`);
                 }
                 // Revoke succeeded — clean up DOM state before the new upload
                 removeFromUploadedList(section, oldUploadId);
@@ -440,7 +440,7 @@
             statusIcon.textContent = '✅';
             btn.disabled = false;   // re-enable so the same row can be used to replace the file
             showToast(
-                `„${file.name}" feltöltve – ${data.wordsAdded} új szó kerül be (összesen a szakaszban: ${data.totalWordsInSection})`,
+                `"${file.name}" uploaded - ${data.wordsAdded} new word(s) added (section total: ${data.totalWordsInSection})`,
                 'success'
             );
 
@@ -469,7 +469,7 @@
                 await refreshResult();
             }
 
-            showToast('Feltöltési hiba: ' + err.message, 'error');
+            showToast('Upload error: ' + err.message, 'error');
         }
     }
 
@@ -482,7 +482,7 @@
         li.dataset.uploadId = uploadId;
         li.innerHTML =
             `<span class="uploaded-filename" title="${fileName}">📄 ${fileName}</span>` +
-            `<span class="uploaded-badge">+${wordsAdded} új szó</span>`;
+            `<span class="uploaded-badge">+${wordsAdded} new words</span>`;
         list.appendChild(li);
         sectionDiv.style.display = '';
     }
@@ -512,11 +512,11 @@
 
             document.getElementById('resultArea').value = data.words.join('\n');
             document.getElementById('resultInfo').textContent =
-                `Eredmény: ${data.words.length} szó  |  ` +
-                `1. szakasz: ${data.section1WordCount} egyedi szó  |  ` +
-                `2. szakasz: ${data.section2WordCount} egyedi szó`;
+                `Result: ${data.words.length} words  |  ` +
+                `Section 1: ${data.section1WordCount} unique words  |  ` +
+                `Section 2: ${data.section2WordCount} unique words`;
         } catch (err) {
-            console.error('Eredmény frissítési hiba:', err);
+            console.error('Result refresh error:', err);
         }
     }
 
@@ -545,9 +545,9 @@
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
 
-            showToast('Letöltve: ' + name, 'success');
+            showToast('Downloaded: ' + name, 'success');
         } catch (err) {
-            showToast('Letöltési hiba: ' + err.message, 'error');
+            showToast('Download error: ' + err.message, 'error');
         }
     }
 
@@ -555,20 +555,20 @@
     async function saveToClipboard() {
         const text = document.getElementById('resultArea').value;
         if (!text.trim()) {
-            showToast('Nincs másolható tartalom', 'error');
+            showToast('No content to copy', 'error');
             return;
         }
         try {
             await navigator.clipboard.writeText(text);
-            showToast('Vágólapra másolva!', 'success');
+            showToast('Copied to clipboard!', 'success');
         } catch (err) {
-            showToast('Vágólap-hiba: ' + err.message, 'error');
+            showToast('Clipboard error: ' + err.message, 'error');
         }
     }
 
     /* ── Reset all state ── */
     async function resetAll() {
-        if (!confirm('Biztosan törölsz minden feltöltött adatot?')) return;
+        if (!confirm('Are you sure you want to delete all uploaded data?')) return;
         try {
             await fetch(`${API}/reset`, { method: 'POST' });
         } catch (_) { /* best-effort */ }
@@ -589,7 +589,7 @@
         document.getElementById('resultArea').value      = '';
         document.getElementById('resultInfo').textContent = '';
         updateButtons();
-        showToast('Visszaállítva – minden adat törölve', 'success');
+        showToast('Reset complete - all data deleted', 'success');
     }
 
     /* ── Toast helper ── */

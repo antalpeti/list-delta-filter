@@ -1,109 +1,109 @@
 # list-set-difference
 
-Spring Boot webalkalmazás, amely két szakaszba feltöltött TXT fájlok szókészletének
-**halmazkülönbségét** számítja ki: `union(1. szakasz) − union(2. szakasz)`.
+Spring Boot web application that computes the **set difference** between TXT uploads
+in two sections: `union(section 1) - union(section 2)`.
 
-## Elérhetőség
+## URL
 
 ```
 http://localhost:8082/list-set-difference
 ```
 
-## UI – 3 szakasz
+## UI - 3 Sections
 
-| # | Szakasz | Leírás |
-|---|---------|--------|
-| **1** | **1. szakasz – TXT fájlok feltöltése** | Egy vagy több TXT fájl feltöltése. Az összes fájl szavainak uniója alkotja az 1. halmazt. |
-| **2** | **2. szakasz – TXT fájlok feltöltése** | Egy vagy több TXT fájl feltöltése. Az összes fájl szavainak uniója alkotja a 2. halmazt. |
-| **3** | **3. szakasz – Eredmény** | Automatikusan megjelenik: `union(1. szakasz) − union(2. szakasz)`. Menthető fájlba vagy vágólapra. |
+| # | Section | Description |
+|---|---------|-------------|
+| **1** | **Section 1 - Upload TXT files** | Upload one or more TXT files. The union of all file words forms set 1. |
+| **2** | **Section 2 - Upload TXT files** | Upload one or more TXT files. The union of all file words forms set 2. |
+| **3** | **Section 3 - Result** | Automatically shows: `union(section 1) - union(section 2)`. Can be saved to file or copied to clipboard. |
 
-A **↺ Visszaállítás** gomb törli az összes feltöltött adatot.
+The **↺ Reset** button clears all uploaded data.
 
-## TXT fájl formátuma
+## TXT File Format
 
-Minden sor egy szót (elemet) tartalmaz. Üres sorok és ismétlődések figyelmen kívül maradnak.
-UTF-8 kódolás ajánlott (a Windows-os BOM karakter automatikusan eltávolításra kerül).
-
-```
-alma
-körte
-szilva
-alma
-```
-
-## Logika
+Each line contains one word (element). Empty lines and duplicates are ignored.
+UTF-8 encoding is recommended (Windows BOM is removed automatically).
 
 ```
-eredmény = union(1. szakasz összes fájlja) − union(2. szakasz összes fájlja)
+apple
+pear
+plum
+apple
 ```
 
-Az eredmény rendezett, egyedi szavak listája (a feltöltés sorrendjében, ismétlés nélkül).
+## Logic
+
+```
+result = union(all files in section 1) - union(all files in section 2)
+```
+
+The result is an ordered, unique list of words (upload order preserved, no duplicates).
 
 ## REST API
 
-| Metódus | Útvonal | Leírás |
-|---------|---------|--------|
-| `POST` | `/list-set-difference/api/upload/{section}` | TXT fájl feltöltése (section = 1 vagy 2) |
-| `GET`  | `/list-set-difference/api/result` | Aktuális különbség lekérdezése (JSON) |
-| `GET`  | `/list-set-difference/api/result/download` | Eredmény letöltése időbélyeges TXT fájlként |
-| `POST` | `/list-set-difference/api/reset` | Összes adat törlése |
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/list-set-difference/api/upload/{section}` | Upload TXT file (`section` = 1 or 2) |
+| `GET`  | `/list-set-difference/api/result` | Fetch current difference (JSON) |
+| `GET`  | `/list-set-difference/api/result/download` | Download result as timestamped TXT |
+| `POST` | `/list-set-difference/api/reset` | Clear all data |
 
-## Futtatás
+## Run
 
 ```bash
 mvn spring-boot:run
 ```
 
-## Tesztek futtatása
+## Run Tests
 
 ```bash
 mvn test
 ```
 
-## Fordítás (tesztek nélkül)
+## Compile (Without Tests)
 
 ```bash
 mvn -q -DskipTests compile
 ```
 
-## E2E tesztek (Playwright)
+## E2E Tests (Playwright)
 
-A Playwright-alapú UI-teszt a csere-flow-t validálja: egy már feltöltött sorban új fájl
-feltöltése automatikus cserét (régi revoke + új upload) hajt végre, és a UI állapota
-konzisztens marad.
+The Playwright UI test validates the replace flow: uploading a new file in an
+already-uploaded row triggers automatic replacement (old revoke + new upload),
+while keeping UI state consistent.
 
-### Előfeltételek
+### Prerequisites
 
-- Node.js 18+ (npm elérhető)
-- Maven (a Spring Boot app indításához)
+- Node.js 18+ (npm available)
+- Maven (to start the Spring Boot app)
 
-### Első futtatás előtt – telepítés
+### First-Time Setup
 
 ```bash
 npm install
 npx playwright install chromium
 ```
 
-### E2E teszt futtatása
+### Run E2E Tests
 
 ```bash
-# Ha a Spring Boot app még nem fut, a Playwright automatikusan elindítja (mvn spring-boot:run).
-# Ha már fut (pl. fejlesztés közben), az egyedi szerver-példány újrafelhasználásra kerül.
+# If the Spring Boot app is not running, Playwright starts it automatically (mvn spring-boot:run).
+# If it is already running (for example during development), the existing server instance is reused.
 npm run test:e2e
 ```
 
-### E2E teszt – headed módban (böngésző ablak látható)
+### Run E2E Tests in Headed Mode (visible browser window)
 
 ```bash
 npm run test:e2e:headed
 ```
 
-### HTML teszt-riport megtekintése
+### View HTML Test Report
 
 ```bash
 npm run test:e2e:report
 ```
 
-A riport a `playwright-report/` mappában kerül tárolásra (`.gitignore`-ban szerepel).
+The report is stored in `playwright-report/` (listed in `.gitignore`).
 
 

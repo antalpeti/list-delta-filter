@@ -41,7 +41,7 @@ async function fetchResult(request) {
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
-test.describe('Replace-flow – csere-flow automatikus ellenőrzése', () => {
+test.describe('Replace flow - automatic verification', () => {
 
   /**
    * Reset server-side state before every test so each run starts clean.
