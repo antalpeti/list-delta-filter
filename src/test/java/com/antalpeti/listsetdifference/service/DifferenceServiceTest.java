@@ -301,6 +301,73 @@ class DifferenceServiceTest extends DifferenceServiceHelper {
         assertFalse(result.section2HasFiles());
     }
 
+    // ─── computeDifference – case-insensitive subtraction ───────────────────
+
+    @Test
+    @DisplayName("computeDifference: section2 word in lowercase removes the same word in uppercase from section1 result")
+    void testComputeDifferenceIsCaseInsensitiveLowerSection2ExcludesUpperSection1() throws IOException {
+        final var service = underTest();
+        service.uploadFile(SECTION_1, createFile("Apple\n" + WORD_BANANA));
+        service.uploadFile(SECTION_2, createFile("apple"));
+
+        final var result = service.computeDifference();
+
+        assertFalse(result.words().stream().anyMatch(w -> w.equalsIgnoreCase(WORD_APPLE)));
+        assertEquals(List.of(WORD_BANANA), result.words());
+    }
+
+    @Test
+    @DisplayName("computeDifference: section2 word in uppercase removes the same word in lowercase from section1 result")
+    void testComputeDifferenceIsCaseInsensitiveUpperSection2ExcludesLowerSection1() throws IOException {
+        final var service = underTest();
+        service.uploadFile(SECTION_1, createFile(WORD_APPLE + "\n" + WORD_BANANA));
+        service.uploadFile(SECTION_2, createFile("APPLE"));
+
+        final var result = service.computeDifference();
+
+        assertFalse(result.words().contains(WORD_APPLE));
+        assertEquals(List.of(WORD_BANANA), result.words());
+    }
+
+    @Test
+    @DisplayName("computeDifference: original case of a surviving section1 word is preserved in the result")
+    void testComputeDifferencePreservesSection1OriginalCaseInResult() throws IOException {
+        final var service = underTest();
+        service.uploadFile(SECTION_1, createFile("Apple\nBanana"));
+        service.uploadFile(SECTION_2, createFile("banana"));
+
+        final var result = service.computeDifference();
+
+        assertEquals(List.of("Apple"), result.words());
+        assertFalse(result.words().contains("Banana"));
+        assertFalse(result.words().contains("apple"));
+    }
+
+    @Test
+    @DisplayName("computeDifference: all case-variants of a section1 word are removed when section2 contains any matching case")
+    void testComputeDifferenceRemovesAllCaseVariantsMatchedBySection2Word() throws IOException {
+        final var service = underTest();
+        service.uploadFile(SECTION_1, createFile("Apple\nAPPLE\nappLe\n" + WORD_BANANA));
+        service.uploadFile(SECTION_2, createFile("apple"));
+
+        final var result = service.computeDifference();
+
+        assertFalse(result.words().stream().anyMatch(w -> w.equalsIgnoreCase(WORD_APPLE)));
+        assertEquals(List.of(WORD_BANANA), result.words());
+    }
+
+    @Test
+    @DisplayName("computeDifference: result is empty when every section1 word matches a section2 word case-insensitively")
+    void testComputeDifferenceReturnsEmptyWhenAllSection1WordsMatchSection2CaseInsensitively() throws IOException {
+        final var service = underTest();
+        service.uploadFile(SECTION_1, createFile("Apple\nBANANA"));
+        service.uploadFile(SECTION_2, createFile("APPLE\nbanana"));
+
+        final var result = service.computeDifference();
+
+        assertTrue(result.words().isEmpty());
+    }
+
     // ─── reset ──────────────────────────────────────────────────────────────
 
     @Test

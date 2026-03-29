@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -100,13 +101,25 @@ public class DifferenceService {
     /**
      * Computes and returns the current difference result.
      * The result is a snapshot; subsequent uploads or revocations may change it.
+     *
+     * <p>Subtraction is <em>case-insensitive</em>: a section-1 word is removed from the
+     * result whenever a section-2 word matches it regardless of case.  The <em>original</em>
+     * case of surviving section-1 words is preserved in the output.</p>
      */
     public synchronized DifferenceResult computeDifference() {
         final var section1Union = computeSectionUnion(1);
         final var section2Union = computeSectionUnion(2);
 
-        final var difference = new LinkedHashSet<>(section1Union);
-        difference.removeAll(section2Union);
+        // Build a lowercase lookup set so the subtraction is case-insensitive.
+        final var section2LowerCase = section2Union.stream()
+                .map(word -> word.toLowerCase(Locale.ROOT))
+                .collect(Collectors.toSet());
+
+        // Keep only section-1 words that have no case-insensitive match in section2,
+        // preserving their original case and first-seen encounter order.
+        final var difference = section1Union.stream()
+                .filter(word -> !section2LowerCase.contains(word.toLowerCase(Locale.ROOT)))
+                .collect(Collectors.toCollection(LinkedHashSet::new));
 
         final var words = Collections.unmodifiableList(new ArrayList<>(difference));
 
@@ -137,15 +150,28 @@ public class DifferenceService {
     }
 
     /**
-     * Reads every non-blank line from the multipart file, strips BOM and surrounding
-     * whitespace, and returns the unique words in encounter order.
+     * Reads every non-blank line from the multipart file and returns the unique words
+     * in encounter order.
+     *
+     * <p>Normalisation pipeline (applied in order):
+     * <ol>
+     *   <li><strong>Trim</strong> – {@link String#strip()} removes all leading and trailing
+     *       Unicode whitespace.</li>
+     *   <li><strong>BOM removal</strong> – if the first character of the stripped line is the
+     *       UTF-8 BOM ({@code U+FEFF}), it is dropped.  Stripping first ensures that any
+     *       whitespace that precedes the BOM is removed before the guard runs.</li>
+     *   <li><strong>Empty-line drop</strong> – lines that are empty after the two steps above
+     *       (including lines that were whitespace-only or contained only the BOM) are
+     *       discarded.</li>
+     * </ol>
+     * </p>
      */
     private Set<String> parseWords(MultipartFile file) throws IOException {
         try (final var reader = new BufferedReader(
                 new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {
             return reader.lines()
-                    .map(line -> !line.isEmpty() && line.charAt(0) == BOM ? line.substring(1) : line)
                     .map(String::strip)
+                    .map(line -> !line.isEmpty() && line.charAt(0) == BOM ? line.substring(1) : line)
                     .filter(line -> !line.isEmpty())
                     .collect(Collectors.toCollection(LinkedHashSet::new));
         }
