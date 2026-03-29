@@ -53,7 +53,7 @@ test.describe('Replace-flow – csere-flow automatikus ellenőrzése', () => {
 
   test(
     'replacing a section-1 file in the same row: no duplicate in status list, result refreshed, section-3 buttons stay enabled',
-    async ({ page }) => {
+    async ({ page, request }) => {
 
       // ── Navigate ────────────────────────────────────────────────────────────
       await page.goto('/list-set-difference/');
@@ -63,6 +63,9 @@ test.describe('Replace-flow – csere-flow automatikus ellenőrzése', () => {
       // ── Step 1: Upload first file to section 1 ──────────────────────────────
       // section1-v1.txt = apple, banana, cherry  (3 unique words)
       await uploadInFirstRow(page, 1, FIXTURE_S1_V1);
+      const section1Row = page.locator('#uploadRows1 .upload-row').first();
+      const oldUploadId = await section1Row.evaluate((el) => el.dataset.uploadId);
+      expect(oldUploadId).toBeTruthy();
 
       // After the first upload the status list for section 1 shows 1 item.
       await expect(page.locator('#uploadedList1 li')).toHaveCount(1);
@@ -80,7 +83,34 @@ test.describe('Replace-flow – csere-flow automatikus ellenőrzése', () => {
       // ── Step 3: Replace section-1 file in THE SAME ROW ──────────────────────
       // section1-v2.txt = mango, banana, plum  (3 unique words)
       // After replace: expected result = {mango, plum}
-      await uploadInFirstRow(page, 1, FIXTURE_S1_V2);
+      await section1Row.locator('input[type="file"]').setInputFiles(FIXTURE_S1_V2);
+
+      const revokeResponsePromise = page.waitForResponse((response) =>
+        response.request().method() === 'DELETE'
+          && response.url().includes(`/list-set-difference/api/upload/1/${oldUploadId}`)
+      );
+      const replaceUploadResponsePromise = page.waitForResponse((response) =>
+        response.request().method() === 'POST'
+          && response.url().includes('/list-set-difference/api/upload/1')
+      );
+
+      await section1Row.locator('.btn-upload').click();
+
+      const revokeResponse = await revokeResponsePromise;
+      expect(revokeResponse.status()).toBe(204);
+
+      const replaceUploadResponse = await replaceUploadResponsePromise;
+      expect(replaceUploadResponse.status()).toBe(200);
+      const replaceUploadBody = await replaceUploadResponse.json();
+      const newUploadId = replaceUploadBody.uploadId;
+
+      expect(newUploadId).toBeTruthy();
+      expect(newUploadId).not.toBe(oldUploadId);
+
+      await expect(section1Row.locator('.status-icon')).toHaveText('✅', { timeout: 15_000 });
+
+      const listedUploadId = await page.locator('#uploadedList1 li').first().evaluate((el) => el.dataset.uploadId);
+      expect(listedUploadId).toBe(newUploadId);
 
       // ── Assertion A: status list must NOT duplicate ──────────────────────────
       // The old entry is revoked and replaced → still exactly 1 item in section-1.
@@ -95,6 +125,10 @@ test.describe('Replace-flow – csere-flow automatikus ellenőrzése', () => {
       expect(resultText).toContain('mango');
       expect(resultText).toContain('plum');
       expect(resultText).not.toContain('apple');   // v1 word must be gone
+
+      // Old uploadId must already be revoked backend-side.
+      const oldIdDeleteAgain = await request.delete(`/list-set-difference/api/upload/1/${oldUploadId}`);
+      expect(oldIdDeleteAgain.status()).toBe(404);
 
       // ── Assertion C: section-3 action buttons stay active ────────────────────
       await expect(page.locator('#saveFileBtn')).toBeEnabled();
