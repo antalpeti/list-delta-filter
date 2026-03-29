@@ -149,6 +149,67 @@
         }
         .btn-add:hover { border-color: #4299e1; color: #4299e1; background: #ebf8ff; }
 
+        /* delete row button */
+        .btn-delete {
+            background: #fed7d7;
+            color: #c53030;
+            border: 1px solid #feb2b2;
+            padding: 0.42rem 0.7rem;
+            font-size: 1.05rem;
+            font-weight: 700;
+            line-height: 1;
+        }
+        .btn-delete:hover:not(:disabled) { background: #fc8181; color: #fff; border-color: #fc8181; }
+
+        /* ── Uploaded files status list ── */
+        .uploaded-section {
+            margin-top: 1rem;
+            padding-top: 0.85rem;
+            border-top: 1px dashed #e2e8f0;
+        }
+        .uploaded-section-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #a0aec0;
+            margin-bottom: 0.5rem;
+        }
+        .uploaded-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.3rem;
+        }
+        .uploaded-list li {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.8125rem;
+            color: #2d3748;
+            padding: 0.3rem 0.55rem;
+            border-radius: 6px;
+            background: #f0fff4;
+            border: 1px solid #c6f6d5;
+            animation: slideIn 0.18s ease;
+        }
+        .uploaded-filename {
+            flex: 1;
+            font-weight: 500;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .uploaded-badge {
+            font-size: 0.72rem;
+            color: #276749;
+            background: #c6f6d5;
+            padding: 0.1rem 0.45rem;
+            border-radius: 99px;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
         /* ── Section-3 result area ── */
         .result-actions {
             display: flex;
@@ -221,6 +282,10 @@
         <div>
             <button class="btn btn-add" onclick="addRow(1)">+ Új sor</button>
         </div>
+        <div id="uploadedSection1" class="uploaded-section" style="display:none;">
+            <div class="uploaded-section-title">✅ Feltöltött fájlok</div>
+            <ul id="uploadedList1" class="uploaded-list"></ul>
+        </div>
     </div>
 
     <!-- ── Section 2 ── -->
@@ -232,6 +297,10 @@
         <div id="uploadRows2"></div>
         <div>
             <button class="btn btn-add" onclick="addRow(2)">+ Új sor</button>
+        </div>
+        <div id="uploadedSection2" class="uploaded-section" style="display:none;">
+            <div class="uploaded-section-title">✅ Feltöltött fájlok</div>
+            <ul id="uploadedList2" class="uploaded-list"></ul>
         </div>
     </div>
 
@@ -280,9 +349,20 @@
         row.innerHTML = `
             <input type="file" accept=".txt">
             <button class="btn btn-upload" onclick="uploadFile(${section}, this)">Feltöltés</button>
+            <button class="btn btn-delete" onclick="removeRow(${section}, this)" title="Sor törlése">−</button>
             <span class="status-icon"></span>`;
-        // Append inside the rows container → always above the "+ Új sor" button below it
         container.appendChild(row);
+    }
+
+    /* ── Remove an upload row (keeps at least 1 per section) ── */
+    function removeRow(section, btn) {
+        const container = document.getElementById('uploadRows' + section);
+        const rows = container.querySelectorAll('.upload-row');
+        if (rows.length <= 1) {
+            showToast('Legalább 1 feltöltő sornak maradnia kell a szakaszban!', 'error');
+            return;
+        }
+        btn.closest('.upload-row').remove();
     }
 
     /* ── Upload the file selected in the given row ── */
@@ -320,6 +400,7 @@
             if (section === 1) s1Count++;
             else               s2Count++;
 
+            addToUploadedList(section, file.name, data.wordsAdded);
             await refreshResult();
 
         } catch (err) {
@@ -327,6 +408,19 @@
             btn.disabled           = false;   // allow retry
             showToast('Feltöltési hiba: ' + err.message, 'error');
         }
+    }
+
+    /* ── Add a successfully uploaded file to the section's status list ── */
+    function addToUploadedList(section, fileName, wordsAdded) {
+        const sectionDiv = document.getElementById('uploadedSection' + section);
+        const list       = document.getElementById('uploadedList' + section);
+
+        const li = document.createElement('li');
+        li.innerHTML =
+            `<span class="uploaded-filename" title="${fileName}">📄 ${fileName}</span>` +
+            `<span class="uploaded-badge">+${wordsAdded} új szó</span>`;
+        list.appendChild(li);
+        sectionDiv.style.display = '';
     }
 
     /* ── Fetch the current difference and update the UI ── */
@@ -409,6 +503,11 @@
         document.getElementById('uploadRows2').innerHTML = '';
         addRow(1);
         addRow(2);
+
+        document.getElementById('uploadedList1').innerHTML    = '';
+        document.getElementById('uploadedList2').innerHTML    = '';
+        document.getElementById('uploadedSection1').style.display = 'none';
+        document.getElementById('uploadedSection2').style.display = 'none';
 
         document.getElementById('resultArea').value      = '';
         document.getElementById('resultInfo').textContent = '';
