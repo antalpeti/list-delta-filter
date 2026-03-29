@@ -65,3 +65,45 @@ mvn test
 ```bash
 mvn -q -DskipTests compile
 ```
+
+## E2E tesztek (Playwright)
+
+A Playwright-alapú UI-teszt a csere-flow-t validálja: egy már feltöltött sorban új fájl
+feltöltése automatikus cserét (régi revoke + új upload) hajt végre, és a UI állapota
+konzisztens marad.
+
+### Előfeltételek
+
+- Node.js 18+ (npm elérhető)
+- Maven (a Spring Boot app indításához)
+
+### Első futtatás előtt – telepítés
+
+```bash
+npm install
+npx playwright install chromium
+```
+
+### E2E teszt futtatása
+
+```bash
+# Ha a Spring Boot app még nem fut, a Playwright automatikusan elindítja (mvn spring-boot:run).
+# Ha már fut (pl. fejlesztés közben), az egyedi szerver-példány újrafelhasználásra kerül.
+npm run test:e2e
+```
+
+### E2E teszt – headed módban (böngésző ablak látható)
+
+```bash
+npm run test:e2e:headed
+```
+
+### HTML teszt-riport megtekintése
+
+```bash
+npm run test:e2e:report
+```
+
+A riport a `playwright-report/` mappában kerül tárolásra (`.gitignore`-ban szerepel).
+
+
