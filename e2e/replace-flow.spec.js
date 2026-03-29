@@ -85,14 +85,26 @@ test.describe('Replace-flow – csere-flow automatikus ellenőrzése', () => {
       // After replace: expected result = {mango, plum}
       await section1Row.locator('input[type="file"]').setInputFiles(FIXTURE_S1_V2);
 
-      const revokeResponsePromise = page.waitForResponse((response) =>
-        response.request().method() === 'DELETE'
-          && response.url().includes(`/list-set-difference/api/upload/1/${oldUploadId}`)
-      );
-      const replaceUploadResponsePromise = page.waitForResponse((response) =>
-        response.request().method() === 'POST'
-          && response.url().includes('/list-set-difference/api/upload/1')
-      );
+      const isReplaceDelete = (requestOrResponse) =>
+        requestOrResponse.request().method() === 'DELETE'
+          && requestOrResponse.url().includes(`/list-set-difference/api/upload/1/${oldUploadId}`);
+      const isReplaceUpload = (requestOrResponse) =>
+        requestOrResponse.request().method() === 'POST'
+          && requestOrResponse.url().includes('/list-set-difference/api/upload/1');
+
+      const replaceRequestOrder = [];
+      const requestOrderListener = (request) => {
+        if (request.method() === 'DELETE' && request.url().includes(`/list-set-difference/api/upload/1/${oldUploadId}`)) {
+          replaceRequestOrder.push('DELETE');
+        }
+        if (request.method() === 'POST' && request.url().includes('/list-set-difference/api/upload/1')) {
+          replaceRequestOrder.push('POST');
+        }
+      };
+      page.on('request', requestOrderListener);
+
+      const revokeResponsePromise = page.waitForResponse((response) => isReplaceDelete(response));
+      const replaceUploadResponsePromise = page.waitForResponse((response) => isReplaceUpload(response));
 
       await section1Row.locator('.btn-upload').click();
 
@@ -100,12 +112,15 @@ test.describe('Replace-flow – csere-flow automatikus ellenőrzése', () => {
       expect(revokeResponse.status()).toBe(204);
 
       const replaceUploadResponse = await replaceUploadResponsePromise;
+      page.off('request', requestOrderListener);
+
       expect(replaceUploadResponse.status()).toBe(200);
       const replaceUploadBody = await replaceUploadResponse.json();
       const newUploadId = replaceUploadBody.uploadId;
 
       expect(newUploadId).toBeTruthy();
       expect(newUploadId).not.toBe(oldUploadId);
+      expect(replaceRequestOrder).toEqual(['DELETE', 'POST']);
 
       await expect(section1Row.locator('.status-icon')).toHaveText('✅', { timeout: 15_000 });
 
