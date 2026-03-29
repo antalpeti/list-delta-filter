@@ -28,6 +28,17 @@ async function uploadInFirstRow(page, section, filePath) {
   await expect(row.locator('.status-icon')).toHaveText('✅', { timeout: 15_000 });
 }
 
+/**
+ * Reads the current backend-computed result JSON.
+ *
+ * @param {import('@playwright/test').APIRequestContext} request
+ */
+async function fetchResult(request) {
+  const response = await request.get('/list-set-difference/api/result');
+  expect(response.ok()).toBeTruthy();
+  return response.json();
+}
+
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 test.describe('Replace-flow – csere-flow automatikus ellenőrzése', () => {
@@ -88,6 +99,67 @@ test.describe('Replace-flow – csere-flow automatikus ellenőrzése', () => {
       // ── Assertion C: section-3 action buttons stay active ────────────────────
       await expect(page.locator('#saveFileBtn')).toBeEnabled();
       await expect(page.locator('#saveClipBtn')).toBeEnabled();
+    }
+  );
+
+  test(
+    'deleting an uploaded row revokes backend upload and disables section-3 actions when section 1 becomes empty',
+    async ({ page, request }) => {
+      await page.goto('/list-set-difference/');
+
+      // Keep one spare row so deleting the uploaded row is allowed.
+      await page.locator('.card').nth(0).locator('.btn-add').click();
+      await expect(page.locator('#uploadRows1 .upload-row')).toHaveCount(2);
+
+      await uploadInFirstRow(page, 1, FIXTURE_S1_V1);
+      await uploadInFirstRow(page, 2, FIXTURE_S2);
+
+      await expect(page.locator('#uploadedList1 li')).toHaveCount(1);
+      await expect(page.locator('#saveFileBtn')).toBeEnabled();
+      await expect(page.locator('#saveClipBtn')).toBeEnabled();
+
+      // Delete the uploaded row from section 1.
+      await page.locator('#uploadRows1 .upload-row').first().locator('.btn-delete').click();
+
+      // UI state: list entry gone, row removed, section-3 actions disabled.
+      await expect(page.locator('#uploadedList1 li')).toHaveCount(0);
+      await expect(page.locator('#uploadRows1 .upload-row')).toHaveCount(1);
+      await expect(page.locator('#saveFileBtn')).toBeDisabled();
+      await expect(page.locator('#saveClipBtn')).toBeDisabled();
+
+      // Backend state: section 1 upload was truly revoked.
+      const result = await fetchResult(request);
+      expect(result.section1HasFiles).toBeFalsy();
+      expect(result.section1WordCount).toBe(0);
+      expect(result.section2HasFiles).toBeTruthy();
+      expect(result.words).toEqual([]);
+    }
+  );
+
+  test(
+    'section-3 buttons are disabled initially, enabled after both sections upload, and disabled again after revoke',
+    async ({ page }) => {
+      await page.goto('/list-set-difference/');
+
+      await expect(page.locator('#saveFileBtn')).toBeDisabled();
+      await expect(page.locator('#saveClipBtn')).toBeDisabled();
+
+      await uploadInFirstRow(page, 1, FIXTURE_S1_V1);
+      await expect(page.locator('#saveFileBtn')).toBeDisabled();
+      await expect(page.locator('#saveClipBtn')).toBeDisabled();
+
+      await uploadInFirstRow(page, 2, FIXTURE_S2);
+      await expect(page.locator('#saveFileBtn')).toBeEnabled();
+      await expect(page.locator('#saveClipBtn')).toBeEnabled();
+
+      // Add one extra row in section 2, then delete the uploaded one to trigger revoke.
+      await page.locator('.card').nth(1).locator('.btn-add').click();
+      await expect(page.locator('#uploadRows2 .upload-row')).toHaveCount(2);
+      await page.locator('#uploadRows2 .upload-row').first().locator('.btn-delete').click();
+
+      await expect(page.locator('#uploadedList2 li')).toHaveCount(0);
+      await expect(page.locator('#saveFileBtn')).toBeDisabled();
+      await expect(page.locator('#saveClipBtn')).toBeDisabled();
     }
   );
 });
