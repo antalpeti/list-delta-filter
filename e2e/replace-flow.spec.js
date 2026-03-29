@@ -152,6 +152,68 @@ test.describe('Replace-flow – csere-flow automatikus ellenőrzése', () => {
   );
 
   test(
+    'replace fails when revoke fails: no section-1 POST upload is sent and original upload remains active',
+    async ({ page }) => {
+      await page.goto('/list-set-difference/');
+
+      // Initial valid state with one uploaded file in each section.
+      await uploadInFirstRow(page, 1, FIXTURE_S1_V1);
+      await uploadInFirstRow(page, 2, FIXTURE_S2);
+
+      const section1Row = page.locator('#uploadRows1 .upload-row').first();
+      const oldUploadId = await section1Row.evaluate((el) => el.dataset.uploadId);
+      expect(oldUploadId).toBeTruthy();
+
+      const listedUploadIdBefore = await page
+        .locator('#uploadedList1 li')
+        .first()
+        .evaluate((el) => el.dataset.uploadId);
+      expect(listedUploadIdBefore).toBe(oldUploadId);
+
+      // Force backend revoke failure for this uploadId.
+      await page.route(`**/list-set-difference/api/upload/1/${oldUploadId}`, async (route) => {
+        await route.fulfill({ status: 500, contentType: 'text/plain', body: 'forced revoke error' });
+      });
+
+      let section1PostDuringReplace = 0;
+      const requestListener = (request) => {
+        if (request.method() === 'POST' && request.url().includes('/list-set-difference/api/upload/1')) {
+          section1PostDuringReplace += 1;
+        }
+      };
+      page.on('request', requestListener);
+
+      await section1Row.locator('input[type="file"]').setInputFiles(FIXTURE_S1_V2);
+      await section1Row.locator('.btn-upload').click();
+
+      await expect(section1Row.locator('.status-icon')).toHaveText('❌', { timeout: 15_000 });
+
+      // Give the UI event loop a short window; no replace-upload POST should appear.
+      await page.waitForTimeout(250);
+
+      page.off('request', requestListener);
+      await page.unroute(`**/list-set-difference/api/upload/1/${oldUploadId}`);
+
+      expect(section1PostDuringReplace).toBe(0);
+
+      // Original upload must remain bound to the row and status list.
+      const uploadIdAfterFailure = await section1Row.evaluate((el) => el.dataset.uploadId);
+      expect(uploadIdAfterFailure).toBe(oldUploadId);
+
+      await expect(page.locator('#uploadedList1 li')).toHaveCount(1);
+      const listedUploadIdAfter = await page
+        .locator('#uploadedList1 li')
+        .first()
+        .evaluate((el) => el.dataset.uploadId);
+      expect(listedUploadIdAfter).toBe(oldUploadId);
+
+      // Since both sections still have an active upload, section-3 actions stay enabled.
+      await expect(page.locator('#saveFileBtn')).toBeEnabled();
+      await expect(page.locator('#saveClipBtn')).toBeEnabled();
+    }
+  );
+
+  test(
     'deleting an uploaded row revokes backend upload and disables section-3 actions when section 1 becomes empty',
     async ({ page, request }) => {
       await page.goto('/list-set-difference/');
