@@ -355,14 +355,49 @@
     }
 
     /* ── Remove an upload row (keeps at least 1 per section) ── */
-    function removeRow(section, btn) {
+    async function removeRow(section, btn) {
         const container = document.getElementById('uploadRows' + section);
         const rows = container.querySelectorAll('.upload-row');
         if (rows.length <= 1) {
             showToast('Legalább 1 feltöltő sornak maradnia kell a szakaszban!', 'error');
             return;
         }
-        btn.closest('.upload-row').remove();
+
+        const row      = btn.closest('.upload-row');
+        const uploadId = row.dataset.uploadId;
+
+        if (uploadId) {
+            // Row was already uploaded — revoke on backend first
+            btn.disabled = true;
+            try {
+                const res = await fetch(`${API}/upload/${section}/${uploadId}`, { method: 'DELETE' });
+                if (!res.ok) {
+                    const text = await res.text();
+                    throw new Error(`HTTP ${res.status}: ${text}`);
+                }
+
+                // Remove from status list
+                const li = document.querySelector(`#uploadedList${section} [data-upload-id="${uploadId}"]`);
+                if (li) li.remove();
+
+                // Decrement counter; hide the uploaded section panel when empty
+                if (section === 1) s1Count--;
+                else               s2Count--;
+                if (document.getElementById('uploadedList' + section).children.length === 0) {
+                    document.getElementById('uploadedSection' + section).style.display = 'none';
+                }
+
+                row.remove();
+                await refreshResult();
+                showToast('Feltöltés visszavonva!', 'success');
+            } catch (err) {
+                btn.disabled = false;
+                showToast('Visszavonási hiba: ' + err.message, 'error');
+            }
+        } else {
+            // Row was never uploaded — pure DOM removal
+            row.remove();
+        }
     }
 
     /* ── Upload the file selected in the given row ── */
@@ -397,10 +432,13 @@
                 'success'
             );
 
+            // store uploadId on the row so the − button can revoke it later
+            row.dataset.uploadId = data.uploadId;
+
             if (section === 1) s1Count++;
             else               s2Count++;
 
-            addToUploadedList(section, file.name, data.wordsAdded);
+            addToUploadedList(section, file.name, data.wordsAdded, data.uploadId);
             await refreshResult();
 
         } catch (err) {
@@ -411,11 +449,12 @@
     }
 
     /* ── Add a successfully uploaded file to the section's status list ── */
-    function addToUploadedList(section, fileName, wordsAdded) {
+    function addToUploadedList(section, fileName, wordsAdded, uploadId) {
         const sectionDiv = document.getElementById('uploadedSection' + section);
         const list       = document.getElementById('uploadedList' + section);
 
         const li = document.createElement('li');
+        li.dataset.uploadId = uploadId;
         li.innerHTML =
             `<span class="uploaded-filename" title="${fileName}">📄 ${fileName}</span>` +
             `<span class="uploaded-badge">+${wordsAdded} új szó</span>`;
@@ -426,7 +465,11 @@
     /* ── Fetch the current difference and update the UI ── */
     async function refreshResult() {
         updateButtons();
-        if (s1Count < 1 || s2Count < 1) return;
+        if (s1Count < 1 || s2Count < 1) {
+            document.getElementById('resultArea').value      = '';
+            document.getElementById('resultInfo').textContent = '';
+            return;
+        }
 
         try {
             const res  = await fetch(`${API}/result`);

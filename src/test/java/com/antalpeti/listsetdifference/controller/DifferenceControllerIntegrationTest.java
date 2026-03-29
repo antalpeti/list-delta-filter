@@ -7,9 +7,12 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -29,6 +32,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @DisplayName("DifferenceController – REST API integration tests")
 class DifferenceControllerIntegrationTest extends DifferenceControllerIntegrationTestHelper {
+
+    @Autowired
+    private ObjectMapper objectMapper;
 
     @BeforeEach
     void resetServiceState() {
@@ -146,6 +152,46 @@ class DifferenceControllerIntegrationTest extends DifferenceControllerIntegratio
     void testUploadEmptyFileToSection1Returns400() throws Exception {
         mockMvc.perform(multipart(API_UPLOAD_1).file(buildEmptyFile()))
                 .andExpect(status().isBadRequest());
+    }
+
+    // ─── DELETE /api/upload/{section}/{uploadId} ──────────────────────────────
+
+    @Test
+    @DisplayName("DELETE /api/upload/1/{uploadId} returns 204 and subsequent GET /api/result no longer contains revoked words")
+    void testRevokeSection1UploadReturns204AndResultIsUpdated() throws Exception {
+        // Upload two files to section 1 and one to section 2
+        final var uploadResult = mockMvc.perform(multipart(API_UPLOAD_1).file(buildSection1File()))
+                .andExpect(status().isOk())
+                .andReturn();
+        final var uploadId = objectMapper
+                .readTree(uploadResult.getResponse().getContentAsString())
+                .get("uploadId").asText();
+
+        mockMvc.perform(multipart(API_UPLOAD_2).file(buildSection2File()));
+
+        // Revoke section-1 file
+        mockMvc.perform(delete(String.format(API_REVOKE_TEMPLATE, SECTION_NUMBER_1, uploadId)))
+                .andExpect(status().isNoContent());
+
+        // Result should now be empty (section 1 has no files)
+        mockMvc.perform(get(API_RESULT))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.section1HasFiles").value(false))
+                .andExpect(jsonPath("$.words.length()").value(EMPTY_WORD_COUNT));
+    }
+
+    @Test
+    @DisplayName("DELETE /api/upload/3/{uploadId} returns 400 because section must be 1 or 2")
+    void testRevokeWithInvalidSectionReturns400() throws Exception {
+        mockMvc.perform(delete(String.format(API_REVOKE_TEMPLATE, 3, "any-id")))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("DELETE /api/upload/1/{uploadId} with unknown uploadId returns 404")
+    void testRevokeWithUnknownUploadIdReturns404() throws Exception {
+        mockMvc.perform(delete(String.format(API_REVOKE_TEMPLATE, SECTION_NUMBER_1, "non-existent-id")))
+                .andExpect(status().isNotFound());
     }
 }
 

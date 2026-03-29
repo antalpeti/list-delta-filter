@@ -10,6 +10,8 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.util.List;
 
+import com.antalpeti.listsetdifference.exception.UploadNotFoundException;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -344,6 +346,96 @@ class DifferenceServiceTest extends DifferenceServiceHelper {
         assertEquals(List.of(WORD_CHERRY), result.words());
         assertEquals(1, result.section1WordCount());
         assertEquals(0, result.section2WordCount());
+    }
+
+    // ─── removeUpload ────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("removeUpload: revoking a section-1 file removes its words from the difference")
+    void testRemoveUploadRevokesWordsFromDifference() throws IOException {
+        final var service = underTest();
+        service.uploadFile(SECTION_1, createFile(WORD_APPLE + "\n" + WORD_BANANA));
+        final var response = service.uploadFile(SECTION_1, createFile(WORD_CHERRY));
+
+        service.removeUpload(SECTION_1, response.uploadId());
+        final var result = service.computeDifference();
+
+        assertTrue(result.words().contains(WORD_APPLE));
+        assertTrue(result.words().contains(WORD_BANANA));
+        assertFalse(result.words().contains(WORD_CHERRY));
+        assertEquals(2, result.section1WordCount());
+    }
+
+    @Test
+    @DisplayName("removeUpload: revoking the only section-1 file makes section1HasFiles false")
+    void testRemoveUploadLastFileInSection1MakesSectionEmpty() throws IOException {
+        final var service = underTest();
+        final var response = service.uploadFile(SECTION_1, createFile(WORD_APPLE));
+
+        service.removeUpload(SECTION_1, response.uploadId());
+        final var result = service.computeDifference();
+
+        assertFalse(result.section1HasFiles());
+        assertEquals(0, result.section1WordCount());
+        assertTrue(result.words().isEmpty());
+    }
+
+    @Test
+    @DisplayName("removeUpload: revoking a section-2 file that had masked section-1 words restores them in the result")
+    void testRemoveUploadFromSection2UnmasksSection1Words() throws IOException {
+        final var service = underTest();
+        service.uploadFile(SECTION_1, createFile(WORD_APPLE + "\n" + WORD_BANANA));
+        final var response = service.uploadFile(SECTION_2, createFile(WORD_APPLE));
+
+        service.removeUpload(SECTION_2, response.uploadId());
+        final var result = service.computeDifference();
+
+        assertTrue(result.words().contains(WORD_APPLE));
+        assertTrue(result.words().contains(WORD_BANANA));
+    }
+
+    @Test
+    @DisplayName("removeUpload: response uploadId is unique per upload")
+    void testUploadFileReturnsUniqueUploadIds() throws IOException {
+        final var service = underTest();
+        final var r1 = service.uploadFile(SECTION_1, createFile(WORD_APPLE));
+        final var r2 = service.uploadFile(SECTION_1, createFile(WORD_BANANA));
+
+        assertFalse(r1.uploadId().equals(r2.uploadId()));
+    }
+
+    @Test
+    @DisplayName("removeUpload: invalid section 0 throws IllegalArgumentException")
+    void testRemoveUploadThrowsForInvalidSectionZero() {
+        final var service = underTest();
+        assertThrows(IllegalArgumentException.class,
+                () -> service.removeUpload(INVALID_SECTION_ZERO, "any-id"));
+    }
+
+    @Test
+    @DisplayName("removeUpload: invalid section 3 throws IllegalArgumentException")
+    void testRemoveUploadThrowsForInvalidSectionThree() {
+        final var service = underTest();
+        assertThrows(IllegalArgumentException.class,
+                () -> service.removeUpload(INVALID_SECTION_THREE, "any-id"));
+    }
+
+    @Test
+    @DisplayName("removeUpload: unknown uploadId throws UploadNotFoundException")
+    void testRemoveUploadThrowsUploadNotFoundForUnknownId() {
+        final var service = underTest();
+        assertThrows(UploadNotFoundException.class,
+                () -> service.removeUpload(SECTION_1, "non-existent-id"));
+    }
+
+    @Test
+    @DisplayName("removeUpload: uploadId that belongs to the other section throws UploadNotFoundException")
+    void testRemoveUploadThrowsWhenUploadIdBelongsToDifferentSection() throws IOException {
+        final var service  = underTest();
+        final var response = service.uploadFile(SECTION_2, createFile(WORD_APPLE));
+
+        assertThrows(UploadNotFoundException.class,
+                () -> service.removeUpload(SECTION_1, response.uploadId()));
     }
 }
 

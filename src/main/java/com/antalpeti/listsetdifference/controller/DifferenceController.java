@@ -1,7 +1,7 @@
 package com.antalpeti.listsetdifference.controller;
 
 import com.antalpeti.listsetdifference.dto.DifferenceResult;
-import com.antalpeti.listsetdifference.dto.UploadResponse;
+import com.antalpeti.listsetdifference.exception.UploadNotFoundException;
 import com.antalpeti.listsetdifference.service.DifferenceService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,10 +24,11 @@ import java.time.format.DateTimeFormatter;
  * {@code http://localhost:8082/list-set-difference/api/…}.</p>
  *
  * <ul>
- *   <li>{@code POST /api/upload/{section}} – upload a TXT file to section 1 or 2</li>
- *   <li>{@code GET  /api/result}           – retrieve the current difference</li>
- *   <li>{@code GET  /api/result/download}  – download the result as a timestamped TXT file</li>
- *   <li>{@code POST /api/reset}            – clear all accumulated state</li>
+ *   <li>{@code POST   /api/upload/{section}}             – upload a TXT file to section 1 or 2</li>
+ *   <li>{@code DELETE /api/upload/{section}/{uploadId}}  – revoke a previously uploaded file</li>
+ *   <li>{@code GET    /api/result}                       – retrieve the current difference</li>
+ *   <li>{@code GET    /api/result/download}              – download the result as a timestamped TXT file</li>
+ *   <li>{@code POST   /api/reset}                        – clear all accumulated state</li>
  * </ul>
  */
 @RestController
@@ -61,6 +62,33 @@ public class DifferenceController {
 
         final var response = differenceService.uploadFile(section, file);
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Revokes a previously uploaded file, removing its words from the section's union.
+     * The difference result is updated automatically on the next {@code GET /api/result} call.
+     *
+     * @param section  target section (1 or 2) – invalid value returns 400
+     * @param uploadId UUID of the upload to remove – unknown ID returns 404
+     */
+    @DeleteMapping("/upload/{section}/{uploadId}")
+    public ResponseEntity<Void> revokeUpload(
+            @PathVariable int section,
+            @PathVariable String uploadId) {
+
+        if (section != 1 && section != 2) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        log.info("DELETE /api/upload/{}/{}", section, uploadId);
+
+        try {
+            differenceService.removeUpload(section, uploadId);
+            return ResponseEntity.noContent().build();
+        } catch (UploadNotFoundException e) {
+            log.warn("Revoke failed — {}", e.getMessage());
+            return ResponseEntity.notFound().build();
+        }
     }
 
     /**

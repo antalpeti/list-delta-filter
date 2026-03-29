@@ -32,6 +32,9 @@ public class DifferenceControllerIntegrationTestHelper {
     public static final String API_RESULT_DOWNLOAD = "/api/result/download";
     public static final String API_RESET = "/api/reset";
 
+    /** Template for the revoke endpoint; use {@link String#format} with section and uploadId. */
+    public static final String API_REVOKE_TEMPLATE = "/api/upload/%d/%s";
+
     // ─── Multipart field names and content-type ───────────────────────────────
 
     public static final String FILE_PARAM = "file";
