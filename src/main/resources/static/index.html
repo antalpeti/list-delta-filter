@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>List Set Difference</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif;
+            background: #eef2f7;
+            color: #2d3748;
+            min-height: 100vh;
+            padding: 2rem 1rem 5rem;
+        }
+
+        /* ── Layout ── */
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        /* ── Page header ── */
+        .page-header {
+            text-align: center;
+            padding: 0.25rem 0 0.5rem;
+        }
+        .page-header h1 {
+            font-size: 1.85rem;
+            font-weight: 700;
+            color: #1a202c;
+            letter-spacing: -0.5px;
+        }
+        .page-header p {
+            margin-top: 0.25rem;
+            font-size: 0.875rem;
+            color: #718096;
+        }
+
+        /* ── Card ── */
+        .card {
+            background: #fff;
+            border-radius: 14px;
+            box-shadow: 0 1px 3px rgba(0,0,0,.08), 0 6px 20px rgba(0,0,0,.06);
+            padding: 1.5rem 1.75rem;
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1.25rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 2px solid #e2e8f0;
+        }
+
+        .card-badge {
+            width: 30px; height: 30px;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 700; font-size: 0.875rem;
+            color: #fff;
+            flex-shrink: 0;
+        }
+        .badge-1 { background: #4299e1; }
+        .badge-2 { background: #9f7aea; }
+        .badge-3 { background: #48bb78; }
+
+        .card-header h2 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #4a5568;
+        }
+
+        /* ── Upload rows ── */
+        .upload-row {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            margin-bottom: 0.5rem;
+            animation: slideIn 0.18s ease;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(-5px); }
+            to   { opacity: 1; transform: translateY(0);    }
+        }
+
+        .upload-row input[type="file"] {
+            flex: 1;
+            min-width: 0;
+            padding: 0.38rem 0.6rem;
+            border: 1px solid #cbd5e0;
+            border-radius: 7px;
+            font-size: 0.8125rem;
+            background: #f7fafc;
+            color: #4a5568;
+            cursor: pointer;
+            transition: border-color 0.15s;
+        }
+        .upload-row input[type="file"]:hover  { border-color: #a0aec0; }
+        .upload-row input[type="file"]:focus  { outline: 2px solid #4299e1; outline-offset: 1px; }
+
+        .status-icon {
+            font-size: 1rem;
+            min-width: 1.4rem;
+            text-align: center;
+            flex-shrink: 0;
+        }
+
+        /* ── Buttons ── */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            padding: 0.42rem 1rem;
+            border: none;
+            border-radius: 7px;
+            font-size: 0.8125rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: filter 0.15s, transform 0.1s, opacity 0.15s;
+            white-space: nowrap;
+            flex-shrink: 0;
+            user-select: none;
+        }
+        .btn:hover:not(:disabled) { filter: brightness(0.91); }
+        .btn:active:not(:disabled) { transform: scale(0.96); }
+        .btn:disabled { opacity: 0.36; cursor: not-allowed; }
+
+        .btn-upload  { background: #4299e1; color: #fff; }
+        .btn-save    { background: #48bb78; color: #fff; }
+        .btn-clip    { background: #667eea; color: #fff; }
+        .btn-reset   { background: #f56565; color: #fff; }
+
+        /* dashed add-row button */
+        .btn-add {
+            background: transparent;
+            border: 2px dashed #b2bec3;
+            color: #718096;
+            padding: 0.32rem 1.1rem;
+            font-size: 1rem;
+            margin-top: 0.35rem;
+            transition: border-color 0.15s, color 0.15s, background 0.15s;
+        }
+        .btn-add:hover { border-color: #4299e1; color: #4299e1; background: #ebf8ff; }
+
+        /* ── Section-3 result area ── */
+        .result-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        .result-actions .spacer { flex: 1; }
+
+        .result-textarea {
+            width: 100%;
+            min-height: 190px;
+            padding: 0.75rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 9px;
+            font-family: 'SFMono-Regular', Consolas, 'Courier New', monospace;
+            font-size: 0.875rem;
+            line-height: 1.65;
+            resize: vertical;
+            background: #f7fafc;
+            color: #2d3748;
+        }
+        .result-info {
+            margin-top: 0.5rem;
+            font-size: 0.775rem;
+            color: #718096;
+        }
+
+        /* ── Toast ── */
+        #toast {
+            position: fixed;
+            bottom: 1.5rem;
+            right: 1.5rem;
+            max-width: 380px;
+            padding: 0.7rem 1.2rem;
+            border-radius: 9px;
+            font-size: 0.85rem;
+            color: #fff;
+            background: #2d3748;
+            box-shadow: 0 4px 18px rgba(0,0,0,.22);
+            opacity: 0;
+            transform: translateY(8px);
+            transition: opacity 0.25s, transform 0.25s;
+            pointer-events: none;
+            z-index: 999;
+        }
+        #toast.visible         { opacity: 1; transform: translateY(0); }
+        #toast.toast-success   { background: #276749; }
+        #toast.toast-error     { background: #c53030; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+
+    <!-- Page header -->
+    <div class="page-header">
+        <h1>List Set Difference</h1>
+        <p>union(1. szakasz) &minus; union(2. szakasz)</p>
+    </div>
+
+    <!-- ── Section 1 ── -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-badge badge-1">1</div>
+            <h2>1. szakasz – TXT fájlok feltöltése</h2>
+        </div>
+        <div id="uploadRows1"></div>
+        <div>
+            <button class="btn btn-add" onclick="addRow(1)">+ Új sor</button>
+        </div>
+    </div>
+
+    <!-- ── Section 2 ── -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-badge badge-2">2</div>
+            <h2>2. szakasz – TXT fájlok feltöltése</h2>
+        </div>
+        <div id="uploadRows2"></div>
+        <div>
+            <button class="btn btn-add" onclick="addRow(2)">+ Új sor</button>
+        </div>
+    </div>
+
+    <!-- ── Section 3 ── -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-badge badge-3">3</div>
+            <h2>3. szakasz – Eredmény</h2>
+        </div>
+        <div class="result-actions">
+            <button id="saveFileBtn"  class="btn btn-save" disabled onclick="saveToFile()">⬇ Mentés fájlba</button>
+            <button id="saveClipBtn"  class="btn btn-clip" disabled onclick="saveToClipboard()">📋 Vágólapra</button>
+            <div class="spacer"></div>
+            <button class="btn btn-reset" onclick="resetAll()">↺ Visszaállítás</button>
+        </div>
+        <textarea id="resultArea" class="result-textarea" readonly
+                  placeholder="Az eredmény itt jelenik meg, miután mindkét szakaszba feltöltöttél legalább egy fájlt…"></textarea>
+        <p id="resultInfo" class="result-info"></p>
+    </div>
+
+</div><!-- /.container -->
+
+<div id="toast"></div>
+
+<script>
+    'use strict';
+
+    // All fetch calls use paths relative to the current page,
+    // so they automatically include the context-path (/list-set-difference).
+    const API = 'api';
+
+    let s1Count = 0;   // successfully uploaded files in section 1
+    let s2Count = 0;   // successfully uploaded files in section 2
+
+    /* ── Initialise with one empty row per section ── */
+    document.addEventListener('DOMContentLoaded', () => {
+        addRow(1);
+        addRow(2);
+    });
+
+    /* ── Add a new upload row to the given section ── */
+    function addRow(section) {
+        const container = document.getElementById('uploadRows' + section);
+        const row = document.createElement('div');
+        row.className = 'upload-row';
+        row.innerHTML = `
+            <input type="file" accept=".txt">
+            <button class="btn btn-upload" onclick="uploadFile(${section}, this)">Feltöltés</button>
+            <span class="status-icon"></span>`;
+        // Append inside the rows container → always above the "+ Új sor" button below it
+        container.appendChild(row);
+    }
+
+    /* ── Upload the file selected in the given row ── */
+    async function uploadFile(section, btn) {
+        const row        = btn.closest('.upload-row');
+        const fileInput  = row.querySelector('input[type="file"]');
+        const statusIcon = row.querySelector('.status-icon');
+
+        if (!fileInput.files?.length) {
+            showToast('Kérlek válassz ki egy TXT fájlt!', 'error');
+            return;
+        }
+
+        const file = fileInput.files[0];
+        const fd   = new FormData();
+        fd.append('file', file);
+
+        btn.disabled             = true;
+        statusIcon.textContent   = '⏳';
+
+        try {
+            const res = await fetch(`${API}/upload/${section}`, { method: 'POST', body: fd });
+            if (!res.ok) {
+                const text = await res.text();
+                throw new Error(`HTTP ${res.status}: ${text}`);
+            }
+            const data = await res.json();
+
+            statusIcon.textContent = '✅';
+            showToast(
+                `„${file.name}" feltöltve – ${data.wordsAdded} új szó kerül be (összesen a szakaszban: ${data.totalWordsInSection})`,
+                'success'
+            );
+
+            if (section === 1) s1Count++;
+            else               s2Count++;
+
+            await refreshResult();
+
+        } catch (err) {
+            statusIcon.textContent = '❌';
+            btn.disabled           = false;   // allow retry
+            showToast('Feltöltési hiba: ' + err.message, 'error');
+        }
+    }
+
+    /* ── Fetch the current difference and update the UI ── */
+    async function refreshResult() {
+        updateButtons();
+        if (s1Count < 1 || s2Count < 1) return;
+
+        try {
+            const res  = await fetch(`${API}/result`);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+
+            document.getElementById('resultArea').value = data.words.join('\n');
+            document.getElementById('resultInfo').textContent =
+                `Eredmény: ${data.words.length} szó  |  ` +
+                `1. szakasz: ${data.section1WordCount} egyedi szó  |  ` +
+                `2. szakasz: ${data.section2WordCount} egyedi szó`;
+        } catch (err) {
+            console.error('Eredmény frissítési hiba:', err);
+        }
+    }
+
+    /* ── Enable / disable the section-3 save buttons ── */
+    function updateButtons() {
+        const ok = s1Count > 0 && s2Count > 0;
+        document.getElementById('saveFileBtn').disabled = !ok;
+        document.getElementById('saveClipBtn').disabled = !ok;
+    }
+
+    /* ── Download result as a timestamped TXT file ── */
+    async function saveToFile() {
+        try {
+            const res = await fetch(`${API}/result/download`);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+            const blob = await res.blob();
+            const cd   = res.headers.get('Content-Disposition') ?? '';
+            const m    = cd.match(/filename="([^"]+)"/);
+            const name = m ? m[1] : `result-${ts()}.txt`;
+
+            const url = URL.createObjectURL(blob);
+            const a   = Object.assign(document.createElement('a'), { href: url, download: name });
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            showToast('Letöltve: ' + name, 'success');
+        } catch (err) {
+            showToast('Letöltési hiba: ' + err.message, 'error');
+        }
+    }
+
+    /* ── Copy result to clipboard ── */
+    async function saveToClipboard() {
+        const text = document.getElementById('resultArea').value;
+        if (!text.trim()) {
+            showToast('Nincs másolható tartalom', 'error');
+            return;
+        }
+        try {
+            await navigator.clipboard.writeText(text);
+            showToast('Vágólapra másolva!', 'success');
+        } catch (err) {
+            showToast('Vágólap-hiba: ' + err.message, 'error');
+        }
+    }
+
+    /* ── Reset all state ── */
+    async function resetAll() {
+        if (!confirm('Biztosan törölsz minden feltöltött adatot?')) return;
+        try {
+            await fetch(`${API}/reset`, { method: 'POST' });
+        } catch (_) { /* best-effort */ }
+
+        s1Count = 0;
+        s2Count = 0;
+
+        document.getElementById('uploadRows1').innerHTML = '';
+        document.getElementById('uploadRows2').innerHTML = '';
+        addRow(1);
+        addRow(2);
+
+        document.getElementById('resultArea').value      = '';
+        document.getElementById('resultInfo').textContent = '';
+        updateButtons();
+        showToast('Visszaállítva – minden adat törölve', 'success');
+    }
+
+    /* ── Toast helper ── */
+    let toastTimer;
+    function showToast(msg, type = '') {
+        const el = document.getElementById('toast');
+        el.textContent = msg;
+        el.className   = 'visible' + (type ? ' toast-' + type : '');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => el.classList.remove('visible'), 3800);
+    }
+
+    /* ── Fallback timestamp for filename (client-side) ── */
+    function ts() {
+        return new Date().toISOString().replace(/[-:T]/g, '').replace(/\..+/, '');
+    }
+</script>
+</body>
+</html>
+
