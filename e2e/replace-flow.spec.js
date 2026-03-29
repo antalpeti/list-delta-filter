@@ -21,6 +21,8 @@ const FIXTURE_S2    = path.join(__dirname, 'fixtures', 'section2.txt');    // ba
  */
 async function uploadInFirstRow(page, section, filePath) {
   const row = page.locator(`#uploadRows${section} .upload-row`).first();
+  await expect(row).toBeVisible({ timeout: 15_000 });
+  await expect(row.locator('input[type="file"]')).toBeVisible({ timeout: 15_000 });
   await row.locator('input[type="file"]').setInputFiles(filePath);
   await row.locator('.btn-upload').click();
   await expect(row.locator('.status-icon')).toHaveText('✅', { timeout: 15_000 });
@@ -35,7 +37,7 @@ test.describe('Replace-flow – csere-flow automatikus ellenőrzése', () => {
    * This is an API call, not a page navigation — much faster than a full reset.
    */
   test.beforeEach(async ({ request }) => {
-    await request.post('/api/reset');
+    await request.post('/list-set-difference/api/reset');
   });
 
   test(
@@ -43,7 +45,9 @@ test.describe('Replace-flow – csere-flow automatikus ellenőrzése', () => {
     async ({ page }) => {
 
       // ── Navigate ────────────────────────────────────────────────────────────
-      await page.goto('/');
+      await page.goto('/list-set-difference/');
+      await expect(page.locator('#uploadRows1 .upload-row input[type="file"]').first())
+        .toBeVisible({ timeout: 15_000 });
 
       // ── Step 1: Upload first file to section 1 ──────────────────────────────
       // section1-v1.txt = apple, banana, cherry  (3 unique words)
